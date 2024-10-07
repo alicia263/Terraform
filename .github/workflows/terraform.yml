@@ -13,7 +13,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform1
+        working-directory: ./terraform
 
     steps:
     - name: Checkout
