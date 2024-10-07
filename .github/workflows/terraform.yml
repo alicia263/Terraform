@@ -46,16 +46,18 @@ jobs:
           TF_VAR_key_name: "your-key-name"
         run: terraform apply -auto-approve
 
-      # Step to retrieve the EC2 instance's public IP
+      # Step to retrieve the EC2 instance's public IP, using GITHUB_ENV for deprecation fix
       - name: Get EC2 Public IP
         id: get_ip
         working-directory: ./terraform
-        run: echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        run: |
+          instance_ip=$(terraform output -raw instance_public_ip)
+          echo "instance_ip=$instance_ip" >> $GITHUB_ENV
 
       # Step to wait for the EC2 instance to be ready
       - name: Wait for EC2 instance to be ready
         run: |
-          while ! nc -z ${{ steps.get_ip.outputs.instance_ip }} 22; do
+          while ! nc -z ${{ env.instance_ip }} 22; do
             echo "Waiting for EC2 instance to be ready..."
             sleep 10
           done
@@ -67,14 +69,14 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ steps.get_ip.outputs.instance_ip }}:~/
+          scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ env.instance_ip }}:~/
 
       # Step to set up and deploy services using Docker Compose on the EC2 instance
       - name: Setup and deploy services
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.instance_ip }} '
             sudo docker-compose up -d
           '
 
@@ -83,7 +85,7 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.instance_ip }} '
             sudo docker-compose ps
             curl -s http://localhost:8080/health
             curl -s http://localhost:9200
