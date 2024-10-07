@@ -10,7 +10,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v1
@@ -23,14 +24,20 @@ jobs:
         aws-region: us-east-1
 
     - name: Terraform Init
-      run: terraform init
+      run: |
+        cd terraform1
+        terraform init
 
     - name: Terraform Apply
-      run: terraform apply -auto-approve
+      run: |
+        cd terraform
+        terraform apply -auto-approve
 
     - name: Get EC2 Public IP
       id: get_ip
-      run: echo "::set-output name=instance_ip::$(terraform output -raw instance_public_ip)"
+      run: |
+        cd terraform
+        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
 
     - name: Wait for EC2 instance to be ready
       run: |
