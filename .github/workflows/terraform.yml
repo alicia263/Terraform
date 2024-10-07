@@ -1,0 +1,67 @@
+name: Deploy Airflow and Related Services
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v1
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve -var="aws_access_key=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -var="key_name=airflow-key"
+
+    - name: Get EC2 Public IP
+      id: get_ip
+      run: echo "::set-output name=instance_ip::$(terraform output -raw instance_public_ip)"
+
+    - name: Wait for EC2 instance to be ready
+      run: |
+        while ! nc -z ${{ steps.get_ip.outputs.instance_ip }} 22; do
+          echo "Waiting for EC2 instance to be ready..."
+          sleep 10
+        done
+
+    - name: Copy files to EC2
+      env:
+        PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+      run: |
+        echo "$PRIVATE_KEY" > private_key.pem
+        chmod 600 private_key.pem
+        scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ steps.get_ip.outputs.instance_ip }}:~/
+
+    - name: Setup and deploy services
+      env:
+        PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+      run: |
+        ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
+          sudo docker-compose up -d
+        '
+
+    - name: Check service health
+      env:
+        PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+      run: |
+        ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
+          sudo docker-compose ps
+          curl -s http://localhost:8080/health
+          curl -s http://localhost:9200
+          curl -s http://localhost:8001/health
+        '
