@@ -50,19 +50,24 @@ jobs:
           TF_VAR_key_name: "your-key-name"
         run: terraform apply -auto-approve
 
+      # Step to retrieve the EC2 instance's public IP
       - name: Get EC2 Public IP
         id: get_ip
         working-directory: ./terraform
         run: |
-          echo "INSTANCE_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_ENV
+          instance_ip=$(terraform output -raw instance_public_ip)
+          echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
 
+      # Debug step to print the EC2 IP
       - name: Debug EC2 IP
         run: echo "The EC2 instance IP is ${{ env.INSTANCE_IP }}"
 
+      # Step to wait for the EC2 instance to be ready
       - name: Wait for EC2 instance to be ready
         run: |
           timeout 300 bash -c 'while ! nc -z ${{ env.INSTANCE_IP }} 22; do echo "Waiting for EC2 instance to be ready..."; sleep 10; done'
 
+      # Step to copy necessary files to EC2
       - name: Copy files to EC2
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
@@ -71,6 +76,7 @@ jobs:
           chmod 600 private_key.pem
           scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ env.INSTANCE_IP }}:~/
 
+      # Step to set up and deploy services using Docker Compose on the EC2 instance
       - name: Setup and deploy services
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
@@ -79,6 +85,7 @@ jobs:
             sudo docker-compose up -d
           '
 
+      # Step to check the health of the services running on the EC2 instance
       - name: Check service health
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
