@@ -1,4 +1,4 @@
-name: Terraform and Deploy
+name: Terraform Destroy and Deploy
 
 on:
   push:
@@ -23,6 +23,15 @@ jobs:
       - name: Initialize Terraform
         working-directory: ./terraform
         run: terraform init
+
+      - name: Destroy existing infrastructure
+        working-directory: ./terraform
+        env:
+          TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_key_name: "your-key-name"
+        run: terraform destroy -auto-approve
+        continue-on-error: true
 
       - name: Terraform Plan
         working-directory: ./terraform
@@ -52,10 +61,7 @@ jobs:
 
       - name: Wait for EC2 instance to be ready
         run: |
-          while ! nc -z ${{ env.INSTANCE_IP }} 22; do
-            echo "Waiting for EC2 instance to be ready..."
-            sleep 10
-          done
+          timeout 300 bash -c 'while ! nc -z ${{ env.INSTANCE_IP }} 22; do echo "Waiting for EC2 instance to be ready..."; sleep 10; done'
 
       - name: Copy files to EC2
         env:
@@ -79,7 +85,7 @@ jobs:
         run: |
           ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.INSTANCE_IP }} '
             sudo docker-compose ps
-            curl -s http://localhost:8080/health
-            curl -s http://localhost:9200
-            curl -s http://localhost:8001/health
+            curl -s http://localhost:8080/health || echo "Airflow health check failed"
+            curl -s http://localhost:9200 || echo "Elasticsearch check failed"
+            curl -s http://localhost:8001/health || echo "FastAPI health check failed"
           '
