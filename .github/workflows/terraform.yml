@@ -1,82 +1,91 @@
-name: 'Terraform and Deploy'
+name: Terraform
 
 on:
   push:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 jobs:
-  terraform_and_deploy:
-    name: 'Terraform and Deploy'
+  terraform:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: ./terraform1
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-      with:
-        terraform_version: 1.0.0  # Specify the version you're using
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.0.11
 
-    - name: Terraform Init
-      run: terraform init  # No need to specify TERRAFORM_CLI_PATH anymore
+      - name: Initialize Terraform
+        working-directory: ./terraform
+        run: terraform init
 
-    - name: Terraform Plan
-      run: terraform plan  # No need to specify TERRAFORM_CLI_PATH anymore
-      env:
-        TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        TF_VAR_key_name: "your-key-name"
+      - name: Format Terraform code
+        working-directory: ./terraform
+        run: terraform fmt -check
 
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve -no-color  # No need to specify TERRAFORM_CLI_PATH
-      env:
-        TF_LOG: DEBUG
-        TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        TF_VAR_key_name: "your-key-name"
+      - name: Terraform Plan
+        working-directory: ./terraform
+        env:
+          TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_key_name: "your-key-name"
+        run: terraform plan
 
-    - name: Get EC2 Public IP
-      id: get_ip
-      run: echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+      - name: Apply Terraform
+        if: github.ref == 'refs/heads/main'
+        working-directory: ./terraform
+        env:
+          TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_key_name: "your-key-name"
+        run: terraform apply -auto-approve
 
-    - name: Wait for EC2 instance to be ready
-      run: |
-        while ! nc -z ${{ steps.get_ip.outputs.instance_ip }} 22; do
-          echo "Waiting for EC2 instance to be ready..."
-          sleep 10
-        done
+      # Step to retrieve the EC2 instance's public IP
+      - name: Get EC2 Public IP
+        id: get_ip
+        working-directory: ./terraform
+        run: echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
 
-    - name: Copy files to EC2
-      env:
-        PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-      run: |
-        echo "$PRIVATE_KEY" > private_key.pem
-        chmod 600 private_key.pem
-        scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ steps.get_ip.outputs.instance_ip }}:~/
+      # Step to wait for the EC2 instance to be ready
+      - name: Wait for EC2 instance to be ready
+        run: |
+          while ! nc -z ${{ steps.get_ip.outputs.instance_ip }} 22; do
+            echo "Waiting for EC2 instance to be ready..."
+            sleep 10
+          done
 
-    - name: Setup and deploy services
-      env:
-        PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-      run: |
-        ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
-          sudo docker-compose up -d
-        '
+      # Step to copy necessary files to EC2
+      - name: Copy files to EC2
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem
+          chmod 600 private_key.pem
+          scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ steps.get_ip.outputs.instance_ip }}:~/
 
-    - name: Check service health
-      env:
-        PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-      run: |
-        ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
-          sudo docker-compose ps
-          curl -s http://localhost:8080/health
-          curl -s http://localhost:9200
-          curl -s http://localhost:8001/health
-        '
+      # Step to set up and deploy services using Docker Compose on the EC2 instance
+      - name: Setup and deploy services
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
+            sudo docker-compose up -d
+          '
+
+      # Step to check the health of the services running on the EC2 instance
+      - name: Check service health
+        env:
+          PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+        run: |
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ steps.get_ip.outputs.instance_ip }} '
+            sudo docker-compose ps
+            curl -s http://localhost:8080/health
+            curl -s http://localhost:9200
+            curl -s http://localhost:8001/health
+          '
