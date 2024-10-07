@@ -6,13 +6,18 @@ terraform {
     }
   }
 
+
+
+terraform {
   backend "s3" {
-    bucket         = "econet-chatbot-terraform-state"  # Replace with your S3 bucket name
-    key            = "terraform.tfstate"         # The path within the bucket to store the state
-    region         = "us-east-1"               # The AWS region of the bucket
-    encrypt        = true  
-        
+    bucket         = "econet-chatbot-terraform-state"
+    key            = "terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    access_key     = "${env("AWS_ACCESS_KEY_ID")}"
+    secret_key     = "${env("AWS_SECRET_ACCESS_KEY")}"
   }
+}
 }
 
 provider "aws" {
