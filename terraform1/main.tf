@@ -90,7 +90,7 @@ resource "aws_security_group" "sg_ec2" {
 
 resource "aws_instance" "airflow_instance" {
   ami           = "ami-0866a3c8686eaeeba"
-  instance_type = "t2.large"  # Increased instance size due to resource requirements
+  instance_type = "t2.xlarge"  # Increased instance size due to resource requirements
   key_name      = aws_key_pair.key_pair.key_name
   vpc_security_group_ids = [aws_security_group.sg_ec2.id]
 
