@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     Context manager to handle the lifespan of the FastAPI app.
     
     During startup, it checks the database connection, and during shutdown,
-    it logs the shutdown message.
+    it logs the shutdown message..
     
     Args:
         app (FastAPI): FastAPI application instance.
