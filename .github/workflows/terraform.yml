@@ -3,7 +3,7 @@ name: 'Terraform and Deploy'
 on:
   push:
     branches:
-    - main
+      - main
   pull_request:
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ./terraform
+        working-directory: ./terraform1
 
     steps:
     - name: Checkout
@@ -25,26 +25,19 @@ jobs:
         terraform_version: 1.0.0  # Specify the version you're using
 
     - name: Terraform Init
-      run: |
-        echo "Terraform CLI Path: $TERRAFORM_CLI_PATH"
-        $TERRAFORM_CLI_PATH init
-      env:
-        TERRAFORM_CLI_PATH: terraform
+      run: terraform init
 
     - name: Terraform Plan
-      run: $TERRAFORM_CLI_PATH plan
+      run: terraform plan
       env:
-        TERRAFORM_CLI_PATH: terraform
         TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         TF_VAR_key_name: "your-key-name"
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        $TERRAFORM_CLI_PATH apply -auto-approve -no-color
+      run: terraform apply -auto-approve -no-color
       env:
-        TERRAFORM_CLI_PATH: terraform
         TF_LOG: DEBUG
         TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -52,10 +45,7 @@ jobs:
 
     - name: Get EC2 Public IP
       id: get_ip
-      run: |
-        echo "instance_ip=$($TERRAFORM_CLI_PATH output -raw instance_public_ip)" >> $GITHUB_OUTPUT
-      env:
-        TERRAFORM_CLI_PATH: terraform
+      run: echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
 
     - name: Wait for EC2 instance to be ready
       run: |
