@@ -10,7 +10,7 @@ terraform {
     bucket         = "econet-chatbot-terraform-state"  # Replace with your S3 bucket name
     key            = "terraform/state"         # The path within the bucket to store the state
     region         = "us-east-1"               # The AWS region of the bucket
-    dynamodb_table = "terraform-locks"         # Optional: Lock table for state locking (see below)
+        
   }
 }
 
