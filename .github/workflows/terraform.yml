@@ -1,4 +1,4 @@
-name: Terraform
+name: Terraform and Deploy
 
 on:
   push:
@@ -11,7 +11,6 @@ on:
 jobs:
   terraform:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -42,46 +41,43 @@ jobs:
           TF_VAR_key_name: "your-key-name"
         run: terraform apply -auto-approve
 
-      # Step to retrieve the EC2 instance's public IP, using GITHUB_ENV for deprecation fix
       - name: Get EC2 Public IP
         id: get_ip
         working-directory: ./terraform
         run: |
-          instance_ip=$(terraform output -raw instance_public_ip)
-          echo "instance_ip=$instance_ip" >> $GITHUB_ENV
+          echo "INSTANCE_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_ENV
 
-      # Step to wait for the EC2 instance to be ready
+      - name: Debug EC2 IP
+        run: echo "The EC2 instance IP is ${{ env.INSTANCE_IP }}"
+
       - name: Wait for EC2 instance to be ready
         run: |
-          while ! nc -z ${{ env.instance_ip }} 22; do
+          while ! nc -z ${{ env.INSTANCE_IP }} 22; do
             echo "Waiting for EC2 instance to be ready..."
             sleep 10
           done
 
-      # Step to copy necessary files to EC2
       - name: Copy files to EC2
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
           echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ env.instance_ip }}:~/
+          scp -i private_key.pem -o StrictHostKeyChecking=no -r docker-compose.yaml .env airflow dags Dockerfile app requirements.txt ubuntu@${{ env.INSTANCE_IP }}:~/
 
-      # Step to set up and deploy services using Docker Compose on the EC2 instance
       - name: Setup and deploy services
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.instance_ip }} '
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.INSTANCE_IP }} '
             sudo docker-compose up -d
           '
 
-      # Step to check the health of the services running on the EC2 instance
       - name: Check service health
         env:
           PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
         run: |
-          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.instance_ip }} '
+          ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.INSTANCE_IP }} '
             sudo docker-compose ps
             curl -s http://localhost:8080/health
             curl -s http://localhost:9200
