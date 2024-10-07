@@ -21,13 +21,20 @@ jobs:
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: 1.0.0  # Specify the version you're using
 
     - name: Terraform Init
-      run: terraform init
+      run: |
+        echo "Terraform CLI Path: $TERRAFORM_CLI_PATH"
+        $TERRAFORM_CLI_PATH init
+      env:
+        TERRAFORM_CLI_PATH: terraform
 
     - name: Terraform Plan
-      run: terraform plan
+      run: $TERRAFORM_CLI_PATH plan
       env:
+        TERRAFORM_CLI_PATH: terraform
         TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         TF_VAR_key_name: "your-key-name"
@@ -35,8 +42,9 @@ jobs:
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
-        terraform apply -auto-approve -no-color
+        $TERRAFORM_CLI_PATH apply -auto-approve -no-color
       env:
+        TERRAFORM_CLI_PATH: terraform
         TF_LOG: DEBUG
         TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -45,7 +53,9 @@ jobs:
     - name: Get EC2 Public IP
       id: get_ip
       run: |
-        echo "instance_ip=$(terraform output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+        echo "instance_ip=$($TERRAFORM_CLI_PATH output -raw instance_public_ip)" >> $GITHUB_OUTPUT
+      env:
+        TERRAFORM_CLI_PATH: terraform
 
     - name: Wait for EC2 instance to be ready
       run: |
