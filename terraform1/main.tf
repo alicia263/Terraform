@@ -13,7 +13,7 @@ provider "aws" {
   secret_key = var.aws_secret_key
 }
   
-}
+
 
 # Define variables for AWS credentials and other configurationss
 variable "aws_access_key" {
