@@ -58,7 +58,7 @@ jobs:
           instance_ip=$(terraform output -raw instance_public_ip)
           echo "INSTANCE_IP=$instance_ip" >> $GITHUB_ENV
 
-      # Debug step to print the EC2 IP
+      # Debug step to print the EC2 IP.
       - name: Debug EC2 IP
         run: echo "The EC2 instance IP is ${{ env.INSTANCE_IP }}"
 
