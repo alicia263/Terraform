@@ -13,10 +13,22 @@ provider "aws" {
   secret_key = var.aws_secret_key
 }
 
-variable "aws_access_key" {}
-variable "aws_secret_key" {}
+# Define variables for AWS credentials and other configurations
+variable "aws_access_key" {
+  description = "AWS Access Key"
+  type        = string
+  sensitive   = true
+}
+
+variable "aws_secret_key" {
+  description = "AWS Secret Key"
+  type        = string
+  sensitive   = true
+}
+
 variable "key_name" {
   description = "Name of the SSH key pair"
+  type        = string
 }
 
 resource "tls_private_key" "rsa_4096" {
