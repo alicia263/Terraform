@@ -25,10 +25,10 @@ jobs:
         terraform_version: 1.0.0  # Specify the version you're using
 
     - name: Terraform Init
-      run: terraform init
+      run: terraform init  # No need to specify TERRAFORM_CLI_PATH anymore
 
     - name: Terraform Plan
-      run: terraform plan
+      run: terraform plan  # No need to specify TERRAFORM_CLI_PATH anymore
       env:
         TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         TF_VAR_aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -36,7 +36,7 @@ jobs:
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve -no-color
+      run: terraform apply -auto-approve -no-color  # No need to specify TERRAFORM_CLI_PATH
       env:
         TF_LOG: DEBUG
         TF_VAR_aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
