@@ -6,16 +6,10 @@ terraform {
     }
   }
 
-
-
-
-  backend "s3" {
-    bucket         = "econet-chatbot-terraform-state"
-    key            = "terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    access_key     = "${env("AWS_ACCESS_KEY_ID")}"
-    secret_key     = "${env("AWS_SECRET_ACCESS_KEY")}"
+backend "s3" {
+    bucket = "terraform-remote-backend-s3"
+    key    = "dev/terraform.tfstate"
+    region = "us-east-1"
   }
 }
 }
