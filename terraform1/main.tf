@@ -9,40 +9,73 @@ terraform {
 
 provider "aws" {
   region     = "us-east-1"
-  access_key = ""
-  secret_key = ""
+  access_key = var.aws_access_key
+  secret_key = var.aws_secret_key
 }
 
-// To Generate Private Key
+variable "aws_access_key" {}
+variable "aws_secret_key" {}
+variable "key_name" {
+  description = "Name of the SSH key pair"
+}
+
 resource "tls_private_key" "rsa_4096" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-variable "key_name" {
-  description = "Name of the SSH key pair"
-}
-
-// Create Key Pair for Connecting EC2 via SSH
 resource "aws_key_pair" "key_pair" {
   key_name   = var.key_name
   public_key = tls_private_key.rsa_4096.public_key_openssh
 }
 
-// Save PEM file locally
 resource "local_file" "private_key" {
   content  = tls_private_key.rsa_4096.private_key_pem
   filename = var.key_name
 }
 
-# Create a security group
 resource "aws_security_group" "sg_ec2" {
-  name        = "sg_ec2"
-  description = "Security group for EC2"
+  name        = "sg_ec2_airflow"
+  description = "Security group for EC2 running Airflow and related services"
 
   ingress {
     from_port   = 22
     to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 9200
+    to_port     = 9200
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8001
+    to_port     = 8001
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -55,18 +88,32 @@ resource "aws_security_group" "sg_ec2" {
   }
 }
 
-resource "aws_instance" "public_instance" {
-  ami                    = "ami-0866a3c8686eaeeba"
-  instance_type          = "t2.micro"
-  key_name               = aws_key_pair.key_pair.key_name
+resource "aws_instance" "airflow_instance" {
+  ami           = "ami-0866a3c8686eaeeba"
+  instance_type = "t2.large"  # Increased instance size due to resource requirements
+  key_name      = aws_key_pair.key_pair.key_name
   vpc_security_group_ids = [aws_security_group.sg_ec2.id]
 
   tags = {
-    Name = "public_instance"
+    Name = "airflow_instance"
   }
 
   root_block_device {
     volume_size = 30
     volume_type = "gp2"
   }
+
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo apt-get update
+              sudo apt-get install -y docker.io docker-compose
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker ubuntu
+              EOF
+}
+
+output "instance_public_ip" {
+  description = "Public IP address of the EC2 instance"
+  value       = aws_instance.airflow_instance.public_ip
 }
