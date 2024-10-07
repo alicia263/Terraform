@@ -15,7 +15,7 @@ provider "aws" {
   
 }
 
-# Define variables for AWS credentials and other configurations
+# Define variables for AWS credentials and other configurationss
 variable "aws_access_key" {
   description = "AWS Access Key"
   type        = string
