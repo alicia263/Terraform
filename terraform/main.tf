@@ -8,7 +8,7 @@ terraform {
 
 
 
-terraform {
+
   backend "s3" {
     bucket         = "econet-chatbot-terraform-state"
     key            = "terraform.tfstate"
