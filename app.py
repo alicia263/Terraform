@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
     it logs the shutdown message.
     
     Args:
-        app (FastAPI): FastAPI application instance..
+        app (FastAPI): FastAPI application instance.
     """
     # Startup
     logging.info("Checking database connection...")
