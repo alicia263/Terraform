@@ -6,31 +6,18 @@ terraform {
     }
   }
 
-backend "s3" {
+  backend "s3" {
     bucket = "terraform-remote-backend-s3"
     key    = "dev/terraform.tfstate"
     region = "us-east-1"
   }
 }
-}
 
 provider "aws" {
-  region     = "us-east-1"
-  access_key = var.aws_access_key
-  secret_key = var.aws_secret_key
+  region = "us-east-1"
 }
-  
+
 # Define variables for AWS credentials and other configurations
-variable "aws_access_key" {
-  description = "AWS Access Key"
-  type        = string
-  sensitive   = true
-}
-variable "aws_secret_key" {
-  description = "AWS Secret Key"
-  type        = string
-  sensitive   = true
-}
 variable "key_name" {
   description = "Name of the SSH key pair"
   type        = string
@@ -91,7 +78,6 @@ resource "aws_security_group" "sg_ec2" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   egress {
     from_port   = 0
     to_port     = 0
