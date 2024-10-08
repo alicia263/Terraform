@@ -1,66 +1,18 @@
-name: Deploy to AWS
+name: oidc connectivity
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
+    branches:
+      - main
+  workflow_dispatch:
+permissions: write-all
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-
-    - name: Terraform Init
-      run: terraform init
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
-
-    - name: Terraform Plan
-      run: terraform plan -var="key_name=mykey"
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
-
-    - name: Terraform Apply
-      run: terraform apply -auto-approve -var="key_name=mykey"
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
-
-    - name: Get EC2 Public IP
-      run: echo "EC2_PUBLIC_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_ENV
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
-
-    - name: Wait for EC2 instance to be ready
-      run: |
-        while ! nc -z ${{ env.EC2_PUBLIC_IP }} 22; do   
-          echo "Waiting for EC2 instance to be ready..."
-          sleep 10
-        done
-
-    - name: Get private key
-      run: |
-        terraform output -raw private_key > private_key.pem
-        chmod 600 private_key.pem
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
-
-    - name: Upload repository to EC2
-      run: |
-        scp -i private_key.pem -o StrictHostKeyChecking=no -r ./* ubuntu@${{ env.EC2_PUBLIC_IP }}:~/repo
-
-    - name: Run Makefile on EC2
-      run: |
-        ssh -i private_key.pem -o StrictHostKeyChecking=no ubuntu@${{ env.EC2_PUBLIC_IP }} << EOF
-          cd ~/repo
-          make up
-        EOF
-
-    - name: Clean up private key
-      run: rm -f private_key.pem
+oidc_connectivity:
+runs-on: ubuntu-latest
+steps:
+- name: checkout
+uses: actions/checkout@v4
+- name: Configure AWS Credentials
+uses: aws-actions/configure-aws-credentials@v4
+with:
+role-to-assume: arn:aws:iam::881490097103:role/Ajayrole
+aws-region: us-east-1
