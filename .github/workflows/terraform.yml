@@ -1,4 +1,5 @@
 name: Deploy to AWS
+
 on:
   push:
     branches: [ main ]
@@ -24,19 +25,21 @@ jobs:
 
     - name: Terraform Init
       run: terraform init
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
+      working-directory: ./terraform
 
     - name: Terraform Plan
       run: terraform plan -var="key_name=mykey"
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
+      working-directory: ./terraform
 
     - name: Terraform Apply
       run: terraform apply -auto-approve -var="key_name=mykey"
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
+      working-directory: ./terraform
 
     - name: Get EC2 Public IP
-      run: echo "EC2_PUBLIC_IP=$(terraform output -raw instance_public_ip)" >> $GITHUB_ENV
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
+      run: |
+        EC2_PUBLIC_IP=$(terraform output -raw instance_public_ip)
+        echo "EC2_PUBLIC_IP=${EC2_PUBLIC_IP}" >> $GITHUB_ENV
+      working-directory: ./terraform
 
     - name: Wait for EC2 instance to be ready
       run: |
@@ -49,7 +52,7 @@ jobs:
       run: |
         terraform output -raw private_key > private_key.pem
         chmod 600 private_key.pem
-      working-directory: ./terraform  # Adjust this path if your Terraform files are in a different directory
+      working-directory: ./terraform
 
     - name: Upload repository to EC2
       run: |
