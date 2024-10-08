@@ -14,10 +14,15 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
-# Define variables for AWS credentials and other configurations
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
 variable "key_name" {
   description = "Name of the SSH key pair"
   type        = string
@@ -84,16 +89,23 @@ resource "aws_security_group" "sg_ec2" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "airflow_sg"
+    Project = "Airflow"
+  }
 }
 
 resource "aws_instance" "airflow_instance" {
   ami           = "ami-0866a3c8686eaeeba"
-  instance_type = "t2.xlarge"  # Increased instance size due to resource requirements
+  instance_type = "t2.xlarge"
   key_name      = aws_key_pair.key_pair.key_name
   vpc_security_group_ids = [aws_security_group.sg_ec2.id]
   
   tags = {
     Name = "airflow_instance"
+    Project = "Airflow"
+    ManagedBy = "Terraform"
   }
   
   root_block_device {
@@ -103,15 +115,25 @@ resource "aws_instance" "airflow_instance" {
   
   user_data = <<-EOF
               #!/bin/bash
+              set -e
+              exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+              echo "Starting user data script"
               sudo apt-get update
               sudo apt-get install -y docker.io docker-compose
               sudo systemctl start docker
               sudo systemctl enable docker
               sudo usermod -aG docker ubuntu
+              echo "User data script completed"
               EOF
 }
 
 output "instance_public_ip" {
   description = "Public IP address of the EC2 instance"
   value       = aws_instance.airflow_instance.public_ip
+}
+
+output "private_key" {
+  description = "Private key for SSH access"
+  value       = tls_private_key.rsa_4096.private_key_pem
+  sensitive   = true
 }
